@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Vision
 
 struct ContentView: View {
     @State var showSelection: Bool = false
@@ -11,12 +12,20 @@ struct ContentView: View {
     @State private var cropRect: CGRect = CGRect(x: 100, y: 100, width: 200, height: 200)
     @State private var imageSize: CGSize = .zero
     
+    @State private var kanjiText: String = ""
+    
     var body: some View {
         VStack{
             if let croppedImage = croppedImage {
                 Image(uiImage: croppedImage)
                     .resizable()
                     .scaledToFit()
+                Text(kanjiText)
+                Button {
+                    extractText(image:croppedImage)
+                } label: {
+                    Text("Extract Kanji")
+                }
             } else if let uiImage = uiImage {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -74,6 +83,40 @@ struct ContentView: View {
             }
         }
     }
+    
+    func extractText(image: UIImage) {
+        guard let cgImage = image.cgImage else { return }
+        
+        // Create a new image-request handler.
+        let requestHandler = VNImageRequestHandler(cgImage: cgImage)
+        
+        // Create a new request to recognize text.
+        let request = VNRecognizeTextRequest(completionHandler: recognizeTextHandler)
+        request.recognitionLanguages = ["ja-JP"]
+
+        do {
+            // Perform the text-recognition request.
+            try requestHandler.perform([request])
+        } catch {
+            print("Unable to perform the requests: \(error).")
+        }
+    }
+    
+    func recognizeTextHandler(request: VNRequest, error: Error?) {
+        guard let observations =
+                request.results as? [VNRecognizedTextObservation] else {
+            return
+        }
+        
+        let recognizedStrings = observations.compactMap { observation in
+            // Return the string of the top VNRecognizedText instance.
+            return observation.topCandidates(1).first?.string
+        }
+        
+        // Process the recognized strings.
+        kanjiText = recognizedStrings.joined(separator: " ")
+    }
+    
 }
 
 struct CropOverlay: View {
